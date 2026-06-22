@@ -63,19 +63,19 @@
 				<key>keyword</key>
 				<string>f</string>
 				<key>queuedelaycustom</key>
-				<real>0.12</real>
+				<real>0.35</real>
 				<key>queuedelayimmediatelyinitially</key>
 				<false/>
 				<key>queuedelaymode</key>
-				<integer>0</integer>
+				<integer>2</integer>
 				<key>queuemode</key>
-				<integer>1</integer>
+				<integer>2</integer>
 				<key>runningsubtext</key>
 				<string>自动识别并翻译中…</string>
 				<key>script</key>
-				<string>./transflow.py script-filter "{query}"</string>
+				<string>./transflow.py script-filter "$1"</string>
 				<key>scriptargtype</key>
-				<integer>0</integer>
+				<integer>1</integer>
 				<key>scriptfile</key>
 				<string></string>
 				<key>subtext</key>
@@ -135,19 +135,19 @@
 				<key>keyword</key>
 				<string>fy</string>
 				<key>queuedelaycustom</key>
-				<real>0.12</real>
+				<real>0.35</real>
 				<key>queuedelayimmediatelyinitially</key>
 				<false/>
 				<key>queuedelaymode</key>
-				<integer>0</integer>
+				<integer>2</integer>
 				<key>queuemode</key>
-				<integer>1</integer>
+				<integer>2</integer>
 				<key>runningsubtext</key>
 				<string>自动识别并翻译中…</string>
 				<key>script</key>
-				<string>./transflow.py script-filter "{query}"</string>
+				<string>./transflow.py script-filter "$1"</string>
 				<key>scriptargtype</key>
-				<integer>0</integer>
+				<integer>1</integer>
 				<key>scriptfile</key>
 				<string></string>
 				<key>subtext</key>
