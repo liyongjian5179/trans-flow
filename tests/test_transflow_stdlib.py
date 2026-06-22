@@ -60,6 +60,38 @@ class BackendLanguageTests(unittest.TestCase):
         self.assertEqual(self.lang.choose_auto_dst("zho_Hant"), "eng_Latn")
 
 
+class BackendTranslatorTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        sys.path.insert(0, str(ROOT))
+        cls.translator_mod = importlib.import_module("backend.translator")
+
+    def test_text_part_extracts_timed_text_text(self):
+        class FakeTimedText:
+            def __init__(self, text):
+                self.text = text
+
+            def __str__(self):
+                return f"TimedText(text={self.text!r}, start=0.0, end=0)"
+
+        tr = self.translator_mod.NLLWTranslator
+        self.assertEqual(tr._text_part(FakeTimedText("你好")), "你好")
+        self.assertEqual(tr._text_part([FakeTimedText("你"), FakeTimedText("好")]), "你好")
+        self.assertEqual(tr._text_part(FakeTimedText("")), "")
+        self.assertEqual(tr._join_parts(FakeTimedText("你"), FakeTimedText("好")), ("你", "好", "你 好"))
+
+    def test_direct_translation_extracts_backend_result(self):
+        class FakeBackend:
+            def simple_translation(self, text):
+                return ["ignored"], f"translated:{text}"
+
+        class FakeTranslator:
+            backend = FakeBackend()
+
+        tr = self.translator_mod.NLLWTranslator
+        self.assertEqual(tr._direct_translation(FakeTranslator(), "hello"), "translated:hello")
+
+
 class WorkflowTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -118,6 +150,16 @@ class WorkflowTests(unittest.TestCase):
         c = self.workflow.stable_uid("tr", "en", "zh", "world")
         self.assertEqual(a, b)
         self.assertNotEqual(a, c)
+
+    def test_clean_api_text_removes_timed_text_repr(self):
+        self.assertEqual(
+            self.workflow.clean_api_text("TimedText(text='hello', start=0.0, end=1)"),
+            "hello",
+        )
+        self.assertEqual(
+            self.workflow.clean_api_text("TimedText(text='', start=0.0, end=0) TimedText(text='', start=0.0, end=0)"),
+            "",
+        )
 
 
 if __name__ == "__main__":

@@ -88,15 +88,6 @@ If exposed to the Internet, set at least:
 NLLW_API_KEY=a-long-random-secret
 ```
 
-If `18765` conflicts with another service, change the host-side port in `.env`:
-
-```env
-NLLW_HOST_PORT=28765
-NLLW_PORT=18765
-```
-
-Then access the service on `http://127.0.0.1:28765`.
-
 Then either:
 
 - expose `18765` directly with firewall restrictions, or

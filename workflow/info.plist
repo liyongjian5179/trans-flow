@@ -36,7 +36,7 @@
 		</array>
 	</dict>
 	<key>createdby</key>
-	<string>Codex</string>
+	<string>liyongjian5179</string>
 	<key>description</key>
 	<string>Fast auto-detect translation workflow powered by NLLW/NLLB and a Docker backend.</string>
 	<key>disabled</key>
@@ -316,6 +316,6 @@ For ambiguous cases, force the direction with `src&gt;dst`.
 	<key>version</key>
 	<string>0.1.0</string>
 	<key>webaddress</key>
-	<string>https://github.com/QuentinFuxa/NoLanguageLeftWaiting</string>
+	<string>https://github.com/liyongjian5179/trans-flow</string>
 </dict>
 </plist>

@@ -51,6 +51,42 @@ class NLLWTranslator:
     def loaded_models(self) -> list[str]:
         return [f"{backend}:{size}:{src}" for backend, size, src in self._models]
 
+    @staticmethod
+    def _text_part(value: Any) -> str:
+        """Extract plain text from nllw return values.
+
+        nllw may return strings, TimedText objects, or lists/tuples of TimedText
+        objects. Using ``str(value)`` on TimedText returns a debug repr such as
+        ``TimedText(text='', start=0.0, end=0)``; for API clients we only want
+        the contained text.
+        """
+        if value is None:
+            return ""
+        if isinstance(value, str):
+            return value.strip()
+        if isinstance(value, (list, tuple)):
+            return "".join(NLLWTranslator._text_part(item) for item in value).strip()
+        text = getattr(value, "text", None)
+        if text is not None:
+            return str(text).strip()
+        return str(value).strip()
+
+    @classmethod
+    def _join_parts(cls, validated: Any, buffer: Any) -> tuple[str, str, str]:
+        validated_s = cls._text_part(validated)
+        buffer_s = cls._text_part(buffer)
+        translation = (validated_s + (" " if validated_s and buffer_s else "") + buffer_s).strip()
+        return validated_s, buffer_s, translation
+
+    @staticmethod
+    def _direct_translation(translator: Any, text: str) -> str:
+        backend = getattr(translator, "backend", None)
+        simple_translation = getattr(backend, "simple_translation", None)
+        if not callable(simple_translation):
+            return ""
+        _tokens, result = simple_translation(text)
+        return NLLWTranslator._text_part(result)
+
     def translate(self, *, text: str, src: str, dst: str) -> dict[str, str | bool]:
         text = (text or "").strip()
         if not text:
@@ -59,10 +95,25 @@ class NLLWTranslator:
         nllw = self._import_nllw()
         model = self._model(src)
         translator = nllw.OnlineTranslation(model, input_languages=[src], output_languages=[dst])
+        try:
+            translation = self._direct_translation(translator, text)
+            if translation:
+                return {"ok": True, "translation": translation, "validated": translation, "buffer": ""}
+        except Exception:
+            logger.debug("nllw direct translation failed; falling back to streaming", exc_info=True)
+
         tokens = [nllw.timed_text.TimedText(text)]
         translator.insert_tokens(tokens)
         validated, buffer = translator.process()
-        validated_s = str(validated or "").strip()
-        buffer_s = str(buffer or "").strip()
-        translation = (validated_s + (" " if validated_s and buffer_s else "") + buffer_s).strip()
+        validated_s, buffer_s, translation = self._join_parts(validated, buffer)
+        if not translation:
+            # Some streaming backends only emit after an explicit empty/final
+            # token. This keeps single-shot API calls from returning an empty
+            # TimedText buffer when the model has a pending segment.
+            try:
+                translator.insert_tokens([nllw.timed_text.TimedText("")])
+                validated, buffer = translator.process()
+                validated_s, buffer_s, translation = self._join_parts(validated, buffer)
+            except Exception:
+                logger.debug("nllw flush attempt failed", exc_info=True)
         return {"ok": True, "translation": translation, "validated": validated_s, "buffer": buffer_s}

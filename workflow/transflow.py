@@ -240,6 +240,19 @@ def stable_uid(prefix: str, *parts: str) -> str:
     return f"{prefix}-{digest}"
 
 
+TIMED_TEXT_RE = re.compile(r"TimedText\(text=(['\"])(.*?)\1,\s*start=[^,)]*,\s*end=[^)]*\)")
+
+
+def clean_api_text(value: Any) -> str:
+    text = str(value or "").strip()
+    if not text:
+        return ""
+    matches = TIMED_TEXT_RE.findall(text)
+    if matches:
+        return " ".join(part for _quote, part in matches if part).strip()
+    return text
+
+
 def item(
     title: str,
     subtitle: str = "",
@@ -404,11 +417,23 @@ def script_filter(query: str) -> None:
         emit_items([item("翻译失败", str(err)[:220], valid=False)])
         return
 
-    translated = (resp.get("translation") or "").strip()
-    validated = (resp.get("validated") or "").strip()
-    buffer = (resp.get("buffer") or "").strip()
+    translated = clean_api_text(resp.get("translation"))
+    validated = clean_api_text(resp.get("validated"))
+    buffer = clean_api_text(resp.get("buffer"))
     if not translated:
         translated = validated or buffer or ""
+    if not translated:
+        emit_items([
+            item(
+                "远程后端返回空译文",
+                "请重新部署后端；旧版本会返回空 TimedText 对象",
+                valid=False,
+                uid="empty-translation",
+            ),
+            item(f"待翻译：{parsed.text[:70]}", f"方向：{parsed.display_pair}", valid=False),
+            *quick_target_items(parsed),
+        ])
+        return
     subtitle = f"{parsed.display_pair} · 回车复制译文"
     mods = {
         "cmd": {
