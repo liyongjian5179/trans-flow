@@ -64,6 +64,9 @@ curl -s http://127.0.0.1:18765/translate \
 
 The first translation may be slow because the model is downloaded and loaded.
 Model cache is persisted in the local bind-mounted directory `./model-cache`, so container restarts/rebuilds will reuse the downloaded files.
+By default, the backend preloads Chinese and English source models on startup
+(`NLLW_WARMUP_SRCS=zho_Hans,eng_Latn`) so Chinese↔English requests do not wait
+for model loading after the service is ready.
 
 ## VPS deployment notes
 
@@ -239,6 +242,7 @@ Response:
 | `NLLW_API_KEY` | empty | Optional bearer key. Strongly recommended on VPS. |
 | `NLLW_BACKEND` | `transformers` | nllw backend. `ctranslate2` may be faster if supported. |
 | `NLLW_MODEL_SIZE` | `600M` | NLLB model size. Try `1.3B` only with enough RAM/VRAM. |
+| `NLLW_WARMUP_SRCS` | `zho_Hans,eng_Latn` | Comma-separated source languages to preload on backend startup. |
 | `NLLW_PORT` | `18765` | Container listen port. |
 | `NLLW_HOST_PORT` | `18765` | Docker Compose host-side published port. |
 | `NLLW_AUTO_TARGET_LANG` | `zho_Hans` | Target for non-Chinese input. |

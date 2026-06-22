@@ -25,6 +25,13 @@ Defaults:
 - non-Chinese → Chinese (`zho_Hans`)
 - Chinese → English (`eng_Latn`)
 
+The backend preloads `zho_Hans` and `eng_Latn` by default on startup. Override
+with `NLLW_WARMUP_SRCS`, for example:
+
+```env
+NLLW_WARMUP_SRCS=zho_Hans,eng_Latn,jpn_Jpan
+```
+
 You can force direction:
 
 ```json

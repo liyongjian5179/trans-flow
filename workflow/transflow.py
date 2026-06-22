@@ -241,6 +241,7 @@ def stable_uid(prefix: str, *parts: str) -> str:
 
 
 TIMED_TEXT_RE = re.compile(r"TimedText\(text=(['\"])(.*?)\1,\s*start=[^,)]*,\s*end=[^)]*\)")
+LEADING_LIST_MARKER_RE = re.compile(r"^\s*(?:[-*•]\s+)+")
 
 
 def clean_api_text(value: Any) -> str:
@@ -249,8 +250,8 @@ def clean_api_text(value: Any) -> str:
         return ""
     matches = TIMED_TEXT_RE.findall(text)
     if matches:
-        return " ".join(part for _quote, part in matches if part).strip()
-    return text
+        text = " ".join(part for _quote, part in matches if part).strip()
+    return LEADING_LIST_MARKER_RE.sub("", text).strip()
 
 
 def item(

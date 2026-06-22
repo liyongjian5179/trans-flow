@@ -2,11 +2,13 @@
 from __future__ import annotations
 
 import logging
+import re
 import threading
 from dataclasses import dataclass
 from typing import Any
 
 logger = logging.getLogger(__name__)
+LEADING_LIST_MARKER_RE = re.compile(r"^\s*(?:[-*•]\s+)+")
 
 
 @dataclass(frozen=True)
@@ -51,6 +53,16 @@ class NLLWTranslator:
     def loaded_models(self) -> list[str]:
         return [f"{backend}:{size}:{src}" for backend, size, src in self._models]
 
+    def warmup(self, src_langs: list[str]) -> list[str]:
+        loaded: list[str] = []
+        for src in src_langs:
+            src = (src or "").strip()
+            if not src:
+                continue
+            self._model(src)
+            loaded.append(src)
+        return loaded
+
     @staticmethod
     def _text_part(value: Any) -> str:
         """Extract plain text from nllw return values.
@@ -71,12 +83,16 @@ class NLLWTranslator:
             return str(text).strip()
         return str(value).strip()
 
+    @staticmethod
+    def _clean_translation(text: str) -> str:
+        return LEADING_LIST_MARKER_RE.sub("", text or "").strip()
+
     @classmethod
     def _join_parts(cls, validated: Any, buffer: Any) -> tuple[str, str, str]:
         validated_s = cls._text_part(validated)
         buffer_s = cls._text_part(buffer)
         translation = (validated_s + (" " if validated_s and buffer_s else "") + buffer_s).strip()
-        return validated_s, buffer_s, translation
+        return validated_s, buffer_s, cls._clean_translation(translation)
 
     @staticmethod
     def _direct_translation(translator: Any, text: str) -> str:
@@ -85,7 +101,7 @@ class NLLWTranslator:
         if not callable(simple_translation):
             return ""
         _tokens, result = simple_translation(text)
-        return NLLWTranslator._text_part(result)
+        return NLLWTranslator._clean_translation(NLLWTranslator._text_part(result))
 
     def translate(self, *, text: str, src: str, dst: str) -> dict[str, str | bool]:
         text = (text or "").strip()

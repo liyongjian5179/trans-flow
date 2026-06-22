@@ -30,7 +30,7 @@ RUN useradd --create-home --uid 10001 appuser \
 
 EXPOSE 18765
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=5s --start-period=600s --retries=3 \
   CMD python -c "import json,os,urllib.request; port=os.environ.get('NLLW_PORT','18765'); r=urllib.request.urlopen(f'http://127.0.0.1:{port}/health', timeout=3); assert json.load(r).get('ok')"
 
 ENTRYPOINT ["docker-entrypoint.sh"]

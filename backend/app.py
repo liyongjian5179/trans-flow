@@ -31,10 +31,16 @@ def env_int(name: str, default: int, *, minimum: int = 1) -> int:
     return max(value, minimum)
 
 
+def env_list(name: str, default: str = "") -> list[str]:
+    raw = env(name, default)
+    return [normalize_lang(item) for item in raw.split(",") if item.strip()]
+
+
 API_KEY = env("NLLW_API_KEY")
 AUTO_TARGET_LANG = normalize_lang(env("NLLW_AUTO_TARGET_LANG", "zho_Hans"))
 AUTO_ALT_TARGET_LANG = normalize_lang(env("NLLW_AUTO_ALT_TARGET_LANG", "eng_Latn"))
 MAX_TEXT_CHARS = env_int("NLLW_MAX_TEXT_CHARS", 4000)
+WARMUP_SRCS = env_list("NLLW_WARMUP_SRCS", "zho_Hans,eng_Latn")
 
 translator = NLLWTranslator(
     EngineConfig(
@@ -57,6 +63,12 @@ app.add_middleware(
     allow_methods=["GET", "POST"],
     allow_headers=["Authorization", "Content-Type"],
 )
+
+
+@app.on_event("startup")
+def warmup_models() -> None:
+    if WARMUP_SRCS:
+        translator.warmup(WARMUP_SRCS)
 
 
 class TranslateRequest(BaseModel):
@@ -93,6 +105,8 @@ def health() -> dict[str, object]:
         "backend": translator.config.backend,
         "model_size": translator.config.model_size,
         "auth_enabled": bool(API_KEY),
+        "warmup_srcs": WARMUP_SRCS,
+        "loaded_models": translator.loaded_models,
     }
 
 

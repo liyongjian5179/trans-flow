@@ -79,6 +79,8 @@ class BackendTranslatorTests(unittest.TestCase):
         self.assertEqual(tr._text_part([FakeTimedText("你"), FakeTimedText("好")]), "你好")
         self.assertEqual(tr._text_part(FakeTimedText("")), "")
         self.assertEqual(tr._join_parts(FakeTimedText("你"), FakeTimedText("好")), ("你", "好", "你 好"))
+        self.assertEqual(tr._clean_translation("- How are you?"), "How are you?")
+        self.assertEqual(tr._clean_translation("• Hello"), "Hello")
 
     def test_direct_translation_extracts_backend_result(self):
         class FakeBackend:
@@ -90,6 +92,14 @@ class BackendTranslatorTests(unittest.TestCase):
 
         tr = self.translator_mod.NLLWTranslator
         self.assertEqual(tr._direct_translation(FakeTranslator(), "hello"), "translated:hello")
+
+    def test_warmup_loads_each_source(self):
+        mod = self.translator_mod
+        translator = mod.NLLWTranslator(mod.EngineConfig())
+        loaded = []
+        translator._model = lambda src: loaded.append(src) or object()  # type: ignore[method-assign]
+        self.assertEqual(translator.warmup(["zho_Hans", "", "eng_Latn"]), ["zho_Hans", "eng_Latn"])
+        self.assertEqual(loaded, ["zho_Hans", "eng_Latn"])
 
 
 class WorkflowTests(unittest.TestCase):
@@ -160,6 +170,8 @@ class WorkflowTests(unittest.TestCase):
             self.workflow.clean_api_text("TimedText(text='', start=0.0, end=0) TimedText(text='', start=0.0, end=0)"),
             "",
         )
+        self.assertEqual(self.workflow.clean_api_text("- How are you?"), "How are you?")
+        self.assertEqual(self.workflow.clean_api_text("• Hello"), "Hello")
 
 
 if __name__ == "__main__":
