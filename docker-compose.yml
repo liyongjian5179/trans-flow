@@ -1,0 +1,19 @@
+services:
+  trans-flow:
+    build: .
+    image: trans-flow:latest
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "8765:8765"
+    volumes:
+      # Bind-mount model caches to the project directory so first download is reused
+      # across container restarts/rebuilds and can be backed up explicitly.
+      - ./model-cache:/models
+    healthcheck:
+      test: ["CMD", "python", "-c", "import json,urllib.request; r=urllib.request.urlopen('http://127.0.0.1:8765/health', timeout=3); assert json.load(r).get('ok')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s

@@ -1,0 +1,527 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>bundleid</key>
+	<string>com.codex.alfred.transflow</string>
+	<key>category</key>
+	<string>Tools</string>
+	<key>connections</key>
+	<dict>
+		<key>8D2B4FB8-15E5-4CB3-B4C1-3D9E2FD1A1A0</key>
+		<array>
+			<dict>
+				<key>destinationuid</key>
+				<string>D3552448-74CF-4E51-B6FB-8FA4BE1490F8</string>
+				<key>modifiers</key>
+				<integer>0</integer>
+				<key>modifiersubtext</key>
+				<string></string>
+				<key>vitoclose</key>
+				<false/>
+			</dict>
+		</array>
+		<key>49B8A242-1484-4AB6-8F71-32CC87BC8229</key>
+		<array>
+			<dict>
+				<key>destinationuid</key>
+				<string>D3552448-74CF-4E51-B6FB-8FA4BE1490F8</string>
+				<key>modifiers</key>
+				<integer>0</integer>
+				<key>modifiersubtext</key>
+				<string></string>
+				<key>vitoclose</key>
+				<false/>
+			</dict>
+		</array>
+	</dict>
+	<key>createdby</key>
+	<string>Codex</string>
+	<key>description</key>
+	<string>Fast auto-detect translation workflow powered by NLLW/NLLB and a Docker backend.</string>
+	<key>disabled</key>
+	<false/>
+	<key>name</key>
+	<string>TransFlow</string>
+	<key>objects</key>
+	<array>
+		<dict>
+			<key>config</key>
+			<dict>
+				<key>alfredfiltersresults</key>
+				<false/>
+				<key>alfredfiltersresultsmatchmode</key>
+				<integer>0</integer>
+				<key>argumenttreatemptyqueryasnil</key>
+				<true/>
+				<key>argumenttrimmode</key>
+				<integer>0</integer>
+				<key>argumenttype</key>
+				<integer>0</integer>
+				<key>escaping</key>
+				<integer>102</integer>
+				<key>keyword</key>
+				<string>f</string>
+				<key>queuedelaycustom</key>
+				<real>0.12</real>
+				<key>queuedelayimmediatelyinitially</key>
+				<false/>
+				<key>queuedelaymode</key>
+				<integer>0</integer>
+				<key>queuemode</key>
+				<integer>1</integer>
+				<key>runningsubtext</key>
+				<string>自动识别并翻译中…</string>
+				<key>script</key>
+				<string>./transflow.py script-filter "{query}"</string>
+				<key>scriptargtype</key>
+				<integer>0</integer>
+				<key>scriptfile</key>
+				<string></string>
+				<key>subtext</key>
+				<string>Type text directly; language is auto-detected</string>
+				<key>title</key>
+				<string>TransFlow</string>
+				<key>type</key>
+				<integer>0</integer>
+				<key>withspace</key>
+				<true/>
+			</dict>
+			<key>type</key>
+			<string>alfred.workflow.input.scriptfilter</string>
+			<key>uid</key>
+			<string>8D2B4FB8-15E5-4CB3-B4C1-3D9E2FD1A1A0</string>
+			<key>version</key>
+			<integer>3</integer>
+		</dict>
+		<dict>
+			<key>config</key>
+			<dict>
+				<key>concurrently</key>
+				<false/>
+				<key>escaping</key>
+				<integer>102</integer>
+				<key>script</key>
+				<string>./transflow.py action "$1"</string>
+				<key>scriptargtype</key>
+				<integer>1</integer>
+				<key>scriptfile</key>
+				<string></string>
+				<key>type</key>
+				<integer>0</integer>
+			</dict>
+			<key>type</key>
+			<string>alfred.workflow.action.script</string>
+			<key>uid</key>
+			<string>D3552448-74CF-4E51-B6FB-8FA4BE1490F8</string>
+			<key>version</key>
+			<integer>2</integer>
+		</dict>
+		<dict>
+			<key>config</key>
+			<dict>
+				<key>alfredfiltersresults</key>
+				<false/>
+				<key>alfredfiltersresultsmatchmode</key>
+				<integer>0</integer>
+				<key>argumenttreatemptyqueryasnil</key>
+				<true/>
+				<key>argumenttrimmode</key>
+				<integer>0</integer>
+				<key>argumenttype</key>
+				<integer>0</integer>
+				<key>escaping</key>
+				<integer>102</integer>
+				<key>keyword</key>
+				<string>fy</string>
+				<key>queuedelaycustom</key>
+				<real>0.12</real>
+				<key>queuedelayimmediatelyinitially</key>
+				<false/>
+				<key>queuedelaymode</key>
+				<integer>0</integer>
+				<key>queuemode</key>
+				<integer>1</integer>
+				<key>runningsubtext</key>
+				<string>自动识别并翻译中…</string>
+				<key>script</key>
+				<string>./transflow.py script-filter "{query}"</string>
+				<key>scriptargtype</key>
+				<integer>0</integer>
+				<key>scriptfile</key>
+				<string></string>
+				<key>subtext</key>
+				<string>Type text directly; language is auto-detected</string>
+				<key>title</key>
+				<string>TransFlow (alias)</string>
+				<key>type</key>
+				<integer>0</integer>
+				<key>withspace</key>
+				<true/>
+			</dict>
+			<key>type</key>
+			<string>alfred.workflow.input.scriptfilter</string>
+			<key>uid</key>
+			<string>49B8A242-1484-4AB6-8F71-32CC87BC8229</string>
+			<key>version</key>
+			<integer>3</integer>
+		</dict>
+	</array>
+	<key>readme</key>
+	<string># TransFlow for Alfred / NLLW
+
+A lightweight Alfred Workflow client for [NoLanguageLeftWaiting](https://github.com/QuentinFuxa/NoLanguageLeftWaiting) / NLLB.
+
+## Fast usage
+
+Keyword: `f`
+
+Type the text directly. The workflow auto-detects the source language:
+
+```text
+f how are you
+f 今天天气很好
+f こんにちは
+f bonjour tout le monde
+```
+
+Default auto routing:
+
+- Any non-Chinese language → Simplified Chinese (`zho_Hans`)
+- Chinese → English (`eng_Latn`)
+
+You can override the target with a short keyword right after `f`:
+
+```text
+f ja 你好          # auto-detect Chinese, translate to Japanese
+f fr hello        # auto-detect English, translate to French
+f 韩 how are you   # translate to Korean
+f @de 你好         # @ prefix also works
+f /ru hello       # / prefix also works
+```
+
+You can also force both source and target:
+
+```text
+f en&gt;ja how are you
+f zh&gt;fr 今天天气很好
+f to ja good morning
+```
+
+The result list also shows common target-language options; select one to fill the short target keyword automatically.
+
+Press Enter on a result to copy the translation. Hold `Cmd` on the result to copy the original text.
+
+## Backend modes
+
+### Recommended: external backend service
+
+Set Alfred Workflow variables:
+
+```text
+NLLW_API_URL=http://127.0.0.1:8765
+NLLW_API_TOKEN=optional
+```
+
+The backend should implement:
+
+```http
+GET /health
+POST /translate
+```
+
+`POST /translate` body:
+
+```json
+{"src":"eng_Latn","dst":"zho_Hans","text":"how are you"}
+```
+
+Response:
+
+```json
+{"ok":true,"translation":"你好吗？"}
+```
+
+### Built-in local service
+
+If `NLLW_API_URL` is empty, the workflow can start its own local service:
+
+```text
+f :start
+f :stop
+f :log
+```
+
+Install dependencies in the workflow folder:
+
+```bash
+./install_deps.sh
+```
+
+The first translation may download/load model files and can take a while.
+
+## Configuration
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `NLLW_API_URL` | empty | External backend URL. Empty means use built-in local service. |
+| `NLLW_API_TOKEN` | empty | Optional Bearer token. |
+| `NLLW_AUTO_TARGET_LANG` | `zho_Hans` | Auto target for non-primary languages. |
+| `NLLW_AUTO_ALT_TARGET_LANG` | `eng_Latn` | Target when input is already primary language. |
+| `NLLW_BACKEND` | `transformers` | Built-in service backend: `transformers` or `ctranslate2`. |
+| `NLLW_MODEL_SIZE` | `600M` | Built-in service model size: `600M` or `1.3B`. |
+| `NLLW_PORT` | `8765` | Built-in local service port. |
+| `NLLW_REQUEST_TIMEOUT` | `25` | HTTP request timeout in seconds. |
+
+## Language detection
+
+Detection is intentionally fast and local:
+
+- Unicode script detection for Chinese, Japanese, Korean, Cyrillic, Arabic, Hebrew, Hindi, Thai, Greek, Tamil, Telugu, Khmer, Myanmar.
+- Lightweight Latin heuristics for English, French, German, Spanish, Portuguese, Vietnamese.
+- Ambiguous Latin text falls back to English.
+
+For ambiguous cases, force the direction with `src&gt;dst`.
+</string>
+	<key>uidata</key>
+	<dict>
+		<key>8D2B4FB8-15E5-4CB3-B4C1-3D9E2FD1A1A0</key>
+		<dict>
+			<key>xpos</key>
+			<integer>40</integer>
+			<key>ypos</key>
+			<integer>80</integer>
+		</dict>
+		<key>D3552448-74CF-4E51-B6FB-8FA4BE1490F8</key>
+		<dict>
+			<key>xpos</key>
+			<integer>360</integer>
+			<key>ypos</key>
+			<integer>80</integer>
+		</dict>
+		<key>49B8A242-1484-4AB6-8F71-32CC87BC8229</key>
+		<dict>
+			<key>xpos</key>
+			<integer>40</integer>
+			<key>ypos</key>
+			<integer>220</integer>
+		</dict>
+	</dict>
+	<key>userconfigurationconfig</key>
+	<array>
+		<dict>
+			<key>config</key>
+			<dict>
+				<key>default</key>
+				<string></string>
+				<key>placeholder</key>
+				<string>http://127.0.0.1:8765</string>
+				<key>required</key>
+				<false/>
+				<key>text</key>
+				<string>Backend API URL; leave empty to use built-in local service</string>
+				<key>trim</key>
+				<true/>
+			</dict>
+			<key>description</key>
+			<string>Set this to call an external FastAPI service from Alfred.</string>
+			<key>label</key>
+			<string>NLLW_API_URL</string>
+			<key>type</key>
+			<string>textfield</string>
+			<key>variable</key>
+			<string>NLLW_API_URL</string>
+		</dict>
+		<dict>
+			<key>config</key>
+			<dict>
+				<key>default</key>
+				<string></string>
+				<key>placeholder</key>
+				<string>optional bearer token</string>
+				<key>required</key>
+				<false/>
+				<key>text</key>
+				<string>Backend API Bearer token</string>
+				<key>trim</key>
+				<true/>
+			</dict>
+			<key>description</key>
+			<string>Optional token sent as Authorization: Bearer ...</string>
+			<key>label</key>
+			<string>NLLW_API_TOKEN</string>
+			<key>type</key>
+			<string>password</string>
+			<key>variable</key>
+			<string>NLLW_API_TOKEN</string>
+		</dict>
+		<dict>
+			<key>config</key>
+			<dict>
+				<key>default</key>
+				<string>zho_Hans</string>
+				<key>placeholder</key>
+				<string>zho_Hans</string>
+				<key>required</key>
+				<false/>
+				<key>text</key>
+				<string>Auto target for non-primary languages</string>
+				<key>trim</key>
+				<true/>
+			</dict>
+			<key>description</key>
+			<string>When input is not this language, translate into it. Usually Chinese.</string>
+			<key>label</key>
+			<string>NLLW_AUTO_TARGET_LANG</string>
+			<key>type</key>
+			<string>textfield</string>
+			<key>variable</key>
+			<string>NLLW_AUTO_TARGET_LANG</string>
+		</dict>
+		<dict>
+			<key>config</key>
+			<dict>
+				<key>default</key>
+				<string>eng_Latn</string>
+				<key>placeholder</key>
+				<string>eng_Latn</string>
+				<key>required</key>
+				<false/>
+				<key>text</key>
+				<string>Auto target when input is already primary target</string>
+				<key>trim</key>
+				<true/>
+			</dict>
+			<key>description</key>
+			<string>When input is already Chinese/primary language, translate into this language. Usually English.</string>
+			<key>label</key>
+			<string>NLLW_AUTO_ALT_TARGET_LANG</string>
+			<key>type</key>
+			<string>textfield</string>
+			<key>variable</key>
+			<string>NLLW_AUTO_ALT_TARGET_LANG</string>
+		</dict>
+		<dict>
+			<key>config</key>
+			<dict>
+				<key>default</key>
+				<string>eng_Latn</string>
+				<key>placeholder</key>
+				<string>eng_Latn</string>
+				<key>required</key>
+				<false/>
+				<key>text</key>
+				<string>Default source language</string>
+				<key>trim</key>
+				<true/>
+			</dict>
+			<key>description</key>
+			<string>Used when no src&gt;dst prefix is provided.</string>
+			<key>label</key>
+			<string>NLLW_SRC_LANG</string>
+			<key>type</key>
+			<string>textfield</string>
+			<key>variable</key>
+			<string>NLLW_SRC_LANG</string>
+		</dict>
+		<dict>
+			<key>config</key>
+			<dict>
+				<key>default</key>
+				<string>zho_Hans</string>
+				<key>placeholder</key>
+				<string>zho_Hans</string>
+				<key>required</key>
+				<false/>
+				<key>text</key>
+				<string>Default target language</string>
+				<key>trim</key>
+				<true/>
+			</dict>
+			<key>description</key>
+			<string>Used when no src&gt;dst prefix is provided.</string>
+			<key>label</key>
+			<string>NLLW_DST_LANG</string>
+			<key>type</key>
+			<string>textfield</string>
+			<key>variable</key>
+			<string>NLLW_DST_LANG</string>
+		</dict>
+		<dict>
+			<key>config</key>
+			<dict>
+				<key>default</key>
+				<string>transformers</string>
+				<key>placeholder</key>
+				<string>transformers</string>
+				<key>required</key>
+				<false/>
+				<key>text</key>
+				<string>Backend: transformers or ctranslate2</string>
+				<key>trim</key>
+				<true/>
+			</dict>
+			<key>description</key>
+			<string>NLLW backend.</string>
+			<key>label</key>
+			<string>NLLW_BACKEND</string>
+			<key>type</key>
+			<string>textfield</string>
+			<key>variable</key>
+			<string>NLLW_BACKEND</string>
+		</dict>
+		<dict>
+			<key>config</key>
+			<dict>
+				<key>default</key>
+				<string>600M</string>
+				<key>placeholder</key>
+				<string>600M</string>
+				<key>required</key>
+				<false/>
+				<key>text</key>
+				<string>Model size: 600M or 1.3B</string>
+				<key>trim</key>
+				<true/>
+			</dict>
+			<key>description</key>
+			<string>NLLB model size.</string>
+			<key>label</key>
+			<string>NLLW_MODEL_SIZE</string>
+			<key>type</key>
+			<string>textfield</string>
+			<key>variable</key>
+			<string>NLLW_MODEL_SIZE</string>
+		</dict>
+	</array>
+	<key>variables</key>
+	<dict>
+		<key>NLLW_SRC_LANG</key>
+		<string>eng_Latn</string>
+		<key>NLLW_DST_LANG</key>
+		<string>zho_Hans</string>
+		<key>NLLW_BACKEND</key>
+		<string>transformers</string>
+		<key>NLLW_MODEL_SIZE</key>
+		<string>600M</string>
+		<key>NLLW_PORT</key>
+		<string>8765</string>
+		<key>NLLW_REQUEST_TIMEOUT</key>
+		<string>25</string>
+		<key>NLLW_API_URL</key>
+		<string></string>
+		<key>NLLW_API_TOKEN</key>
+		<string></string>
+		<key>NLLW_AUTO_TARGET_LANG</key>
+		<string>zho_Hans</string>
+		<key>NLLW_AUTO_ALT_TARGET_LANG</key>
+		<string>eng_Latn</string>
+	</dict>
+	<key>variablesdontexport</key>
+	<array/>
+	<key>version</key>
+	<string>0.1.0</string>
+	<key>webaddress</key>
+	<string>https://github.com/QuentinFuxa/NoLanguageLeftWaiting</string>
+</dict>
+</plist>

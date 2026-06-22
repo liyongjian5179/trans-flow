@@ -1,0 +1,13 @@
+.git
+.gitignore
+.env
+.venv
+__pycache__
+*.pyc
+.DS_Store
+dist
+workflow/.venv
+workflow/__pycache__
+
+# Do not bake downloaded model cache into the image.
+model-cache

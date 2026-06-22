@@ -1,0 +1,12 @@
+.env
+.venv/
+__pycache__/
+*.pyc
+.DS_Store
+dist/*.alfredworkflow
+workflow/.venv/
+workflow/__pycache__/
+
+# Local bind-mounted model cache; keep directory but ignore downloaded models.
+model-cache/*
+!model-cache/.gitkeep
