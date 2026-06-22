@@ -8,7 +8,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     TRANSFORMERS_CACHE=/models/huggingface/transformers \
     XDG_CACHE_HOME=/models/cache \
     NLLW_HOST=0.0.0.0 \
-    NLLW_PORT=8765
+    NLLW_PORT=18765
 
 WORKDIR /app
 
@@ -28,10 +28,10 @@ RUN useradd --create-home --uid 10001 appuser \
     && chown -R appuser:appuser /app /models \
     && chmod +x /usr/local/bin/docker-entrypoint.sh
 
-EXPOSE 8765
+EXPOSE 18765
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
-  CMD python -c "import json,urllib.request; r=urllib.request.urlopen('http://127.0.0.1:8765/health', timeout=3); assert json.load(r).get('ok')"
+  CMD python -c "import json,os,urllib.request; port=os.environ.get('NLLW_PORT','18765'); r=urllib.request.urlopen(f'http://127.0.0.1:{port}/health', timeout=3); assert json.load(r).get('ok')"
 
 ENTRYPOINT ["docker-entrypoint.sh"]
-CMD ["python", "-m", "uvicorn", "backend.app:app", "--host", "0.0.0.0", "--port", "8765", "--workers", "1"]
+CMD ["sh", "-c", "python -m uvicorn backend.app:app --host 0.0.0.0 --port ${NLLW_PORT:-18765} --workers 1"]

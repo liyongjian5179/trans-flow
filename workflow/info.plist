@@ -212,16 +212,18 @@ The result list also shows common target-language options; select one to fill th
 
 Press Enter on a result to copy the translation. Hold `Cmd` on the result to copy the original text.
 
-## Backend modes
+## Backend mode
 
-### Recommended: external backend service
+TransFlow for Alfred is a remote API client only. It never starts or calls a built-in localhost translation service.
 
-Set Alfred Workflow variables:
+Set Alfred Workflow variables in the **Environment Variables** tab:
 
 ```text
-NLLW_API_URL=http://127.0.0.1:8765
-NLLW_API_TOKEN=optional
+NLLW_API_URL=https://translate.example.com
+NLLW_API_KEY=optional
 ```
+
+`NLLW_API_URL` is required. If it is empty, the workflow shows a configuration warning instead of falling back to localhost.
 
 The backend should implement:
 
@@ -242,35 +244,16 @@ Response:
 {"ok":true,"translation":"你好吗？"}
 ```
 
-### Built-in local service
-
-If `NLLW_API_URL` is empty, the workflow can start its own local service:
-
-```text
-f :start
-f :stop
-f :log
-```
-
-Install dependencies in the workflow folder:
-
-```bash
-./install_deps.sh
-```
-
-The first translation may download/load model files and can take a while.
-
 ## Configuration
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
-| `NLLW_API_URL` | empty | External backend URL. Empty means use built-in local service. |
-| `NLLW_API_TOKEN` | empty | Optional Bearer token. |
+| `NLLW_API_URL` | empty | Remote backend URL. Required. |
+| `NLLW_API_KEY` | empty | Optional Bearer key. |
 | `NLLW_AUTO_TARGET_LANG` | `zho_Hans` | Auto target for non-primary languages. |
 | `NLLW_AUTO_ALT_TARGET_LANG` | `eng_Latn` | Target when input is already primary language. |
-| `NLLW_BACKEND` | `transformers` | Built-in service backend: `transformers` or `ctranslate2`. |
-| `NLLW_MODEL_SIZE` | `600M` | Built-in service model size: `600M` or `1.3B`. |
-| `NLLW_PORT` | `8765` | Built-in local service port. |
+| `NLLW_SRC_LANG` | `eng_Latn` | Fallback source language. |
+| `NLLW_DST_LANG` | `zho_Hans` | Fallback target language. |
 | `NLLW_REQUEST_TIMEOUT` | `25` | HTTP request timeout in seconds. |
 
 ## Language detection
@@ -308,217 +291,28 @@ For ambiguous cases, force the direction with `src&gt;dst`.
 		</dict>
 	</dict>
 	<key>userconfigurationconfig</key>
-	<array>
-		<dict>
-			<key>config</key>
-			<dict>
-				<key>default</key>
-				<string></string>
-				<key>placeholder</key>
-				<string>http://127.0.0.1:8765</string>
-				<key>required</key>
-				<false/>
-				<key>text</key>
-				<string>Backend API URL; leave empty to use built-in local service</string>
-				<key>trim</key>
-				<true/>
-			</dict>
-			<key>description</key>
-			<string>Set this to call an external FastAPI service from Alfred.</string>
-			<key>label</key>
-			<string>NLLW_API_URL</string>
-			<key>type</key>
-			<string>textfield</string>
-			<key>variable</key>
-			<string>NLLW_API_URL</string>
-		</dict>
-		<dict>
-			<key>config</key>
-			<dict>
-				<key>default</key>
-				<string></string>
-				<key>placeholder</key>
-				<string>optional bearer token</string>
-				<key>required</key>
-				<false/>
-				<key>text</key>
-				<string>Backend API Bearer token</string>
-				<key>trim</key>
-				<true/>
-			</dict>
-			<key>description</key>
-			<string>Optional token sent as Authorization: Bearer ...</string>
-			<key>label</key>
-			<string>NLLW_API_TOKEN</string>
-			<key>type</key>
-			<string>password</string>
-			<key>variable</key>
-			<string>NLLW_API_TOKEN</string>
-		</dict>
-		<dict>
-			<key>config</key>
-			<dict>
-				<key>default</key>
-				<string>zho_Hans</string>
-				<key>placeholder</key>
-				<string>zho_Hans</string>
-				<key>required</key>
-				<false/>
-				<key>text</key>
-				<string>Auto target for non-primary languages</string>
-				<key>trim</key>
-				<true/>
-			</dict>
-			<key>description</key>
-			<string>When input is not this language, translate into it. Usually Chinese.</string>
-			<key>label</key>
-			<string>NLLW_AUTO_TARGET_LANG</string>
-			<key>type</key>
-			<string>textfield</string>
-			<key>variable</key>
-			<string>NLLW_AUTO_TARGET_LANG</string>
-		</dict>
-		<dict>
-			<key>config</key>
-			<dict>
-				<key>default</key>
-				<string>eng_Latn</string>
-				<key>placeholder</key>
-				<string>eng_Latn</string>
-				<key>required</key>
-				<false/>
-				<key>text</key>
-				<string>Auto target when input is already primary target</string>
-				<key>trim</key>
-				<true/>
-			</dict>
-			<key>description</key>
-			<string>When input is already Chinese/primary language, translate into this language. Usually English.</string>
-			<key>label</key>
-			<string>NLLW_AUTO_ALT_TARGET_LANG</string>
-			<key>type</key>
-			<string>textfield</string>
-			<key>variable</key>
-			<string>NLLW_AUTO_ALT_TARGET_LANG</string>
-		</dict>
-		<dict>
-			<key>config</key>
-			<dict>
-				<key>default</key>
-				<string>eng_Latn</string>
-				<key>placeholder</key>
-				<string>eng_Latn</string>
-				<key>required</key>
-				<false/>
-				<key>text</key>
-				<string>Default source language</string>
-				<key>trim</key>
-				<true/>
-			</dict>
-			<key>description</key>
-			<string>Used when no src&gt;dst prefix is provided.</string>
-			<key>label</key>
-			<string>NLLW_SRC_LANG</string>
-			<key>type</key>
-			<string>textfield</string>
-			<key>variable</key>
-			<string>NLLW_SRC_LANG</string>
-		</dict>
-		<dict>
-			<key>config</key>
-			<dict>
-				<key>default</key>
-				<string>zho_Hans</string>
-				<key>placeholder</key>
-				<string>zho_Hans</string>
-				<key>required</key>
-				<false/>
-				<key>text</key>
-				<string>Default target language</string>
-				<key>trim</key>
-				<true/>
-			</dict>
-			<key>description</key>
-			<string>Used when no src&gt;dst prefix is provided.</string>
-			<key>label</key>
-			<string>NLLW_DST_LANG</string>
-			<key>type</key>
-			<string>textfield</string>
-			<key>variable</key>
-			<string>NLLW_DST_LANG</string>
-		</dict>
-		<dict>
-			<key>config</key>
-			<dict>
-				<key>default</key>
-				<string>transformers</string>
-				<key>placeholder</key>
-				<string>transformers</string>
-				<key>required</key>
-				<false/>
-				<key>text</key>
-				<string>Backend: transformers or ctranslate2</string>
-				<key>trim</key>
-				<true/>
-			</dict>
-			<key>description</key>
-			<string>NLLW backend.</string>
-			<key>label</key>
-			<string>NLLW_BACKEND</string>
-			<key>type</key>
-			<string>textfield</string>
-			<key>variable</key>
-			<string>NLLW_BACKEND</string>
-		</dict>
-		<dict>
-			<key>config</key>
-			<dict>
-				<key>default</key>
-				<string>600M</string>
-				<key>placeholder</key>
-				<string>600M</string>
-				<key>required</key>
-				<false/>
-				<key>text</key>
-				<string>Model size: 600M or 1.3B</string>
-				<key>trim</key>
-				<true/>
-			</dict>
-			<key>description</key>
-			<string>NLLB model size.</string>
-			<key>label</key>
-			<string>NLLW_MODEL_SIZE</string>
-			<key>type</key>
-			<string>textfield</string>
-			<key>variable</key>
-			<string>NLLW_MODEL_SIZE</string>
-		</dict>
-	</array>
+	<array/>
 	<key>variables</key>
 	<dict>
 		<key>NLLW_SRC_LANG</key>
 		<string>eng_Latn</string>
 		<key>NLLW_DST_LANG</key>
 		<string>zho_Hans</string>
-		<key>NLLW_BACKEND</key>
-		<string>transformers</string>
-		<key>NLLW_MODEL_SIZE</key>
-		<string>600M</string>
-		<key>NLLW_PORT</key>
-		<string>8765</string>
 		<key>NLLW_REQUEST_TIMEOUT</key>
 		<string>25</string>
 		<key>NLLW_API_URL</key>
-		<string></string>
-		<key>NLLW_API_TOKEN</key>
 		<string></string>
 		<key>NLLW_AUTO_TARGET_LANG</key>
 		<string>zho_Hans</string>
 		<key>NLLW_AUTO_ALT_TARGET_LANG</key>
 		<string>eng_Latn</string>
+		<key>NLLW_API_KEY</key>
+		<string></string>
 	</dict>
 	<key>variablesdontexport</key>
-	<array/>
+	<array>
+		<string>NLLW_API_KEY</string>
+	</array>
 	<key>version</key>
 	<string>0.1.0</string>
 	<key>webaddress</key>

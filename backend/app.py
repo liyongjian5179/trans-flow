@@ -31,7 +31,7 @@ def env_int(name: str, default: int, *, minimum: int = 1) -> int:
     return max(value, minimum)
 
 
-API_TOKEN = env("NLLW_API_TOKEN")
+API_KEY = env("NLLW_API_KEY")
 AUTO_TARGET_LANG = normalize_lang(env("NLLW_AUTO_TARGET_LANG", "zho_Hans"))
 AUTO_ALT_TARGET_LANG = normalize_lang(env("NLLW_AUTO_ALT_TARGET_LANG", "eng_Latn"))
 MAX_TEXT_CHARS = env_int("NLLW_MAX_TEXT_CHARS", 4000)
@@ -77,12 +77,12 @@ class TranslateResponse(BaseModel):
     model_size: str
 
 
-def require_token(authorization: str | None = Header(default=None)) -> None:
-    if not API_TOKEN:
+def require_api_key(authorization: str | None = Header(default=None)) -> None:
+    if not API_KEY:
         return
-    expected = f"Bearer {API_TOKEN}"
+    expected = f"Bearer {API_KEY}"
     if authorization != expected:
-        raise HTTPException(status_code=401, detail="missing or invalid bearer token")
+        raise HTTPException(status_code=401, detail="missing or invalid bearer key")
 
 
 @app.get("/health")
@@ -92,11 +92,11 @@ def health() -> dict[str, object]:
         "uptime_seconds": round(time.time() - STARTED_AT, 3),
         "backend": translator.config.backend,
         "model_size": translator.config.model_size,
-        "auth_enabled": bool(API_TOKEN),
+        "auth_enabled": bool(API_KEY),
     }
 
 
-@app.get("/ready", dependencies=[Depends(require_token)])
+@app.get("/ready", dependencies=[Depends(require_api_key)])
 def ready() -> dict[str, object]:
     return {"ok": True, "loaded_models": translator.loaded_models}
 
@@ -112,7 +112,7 @@ def languages() -> dict[str, object]:
     }
 
 
-@app.post("/translate", response_model=TranslateResponse, dependencies=[Depends(require_token)])
+@app.post("/translate", response_model=TranslateResponse, dependencies=[Depends(require_api_key)])
 def translate(req: TranslateRequest) -> TranslateResponse:
     text = req.text.strip()
     detected_src = detect_source_lang(text)
@@ -136,7 +136,7 @@ def translate(req: TranslateRequest) -> TranslateResponse:
     )
 
 
-@app.post("/detect", dependencies=[Depends(require_token)])
+@app.post("/detect", dependencies=[Depends(require_api_key)])
 def detect(payload: dict[str, str]) -> dict[str, object]:
     text = (payload.get("text") or "").strip()
     src = detect_source_lang(text)

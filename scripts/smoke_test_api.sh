@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
-BASE_URL="${1:-${NLLW_API_URL:-http://127.0.0.1:8765}}"
-TOKEN="${NLLW_API_TOKEN:-}"
+BASE_URL="${1:-${NLLW_API_URL:-http://127.0.0.1:18765}}"
+API_KEY="${NLLW_API_KEY:-}"
 AUTH=()
-if [[ -n "$TOKEN" ]]; then
-  AUTH=(-H "Authorization: Bearer $TOKEN")
+if [[ -n "$API_KEY" ]]; then
+  AUTH=(-H "Authorization: Bearer $API_KEY")
 fi
 curl -fsS "$BASE_URL/health" | python3 -m json.tool
 curl -fsS "$BASE_URL/translate" \

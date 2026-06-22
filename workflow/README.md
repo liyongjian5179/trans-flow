@@ -42,16 +42,18 @@ The result list also shows common target-language options; select one to fill th
 
 Press Enter on a result to copy the translation. Hold `Cmd` on the result to copy the original text.
 
-## Backend modes
+## Backend mode
 
-### Recommended: external backend service
+TransFlow for Alfred is a remote API client only. It never starts or calls a built-in localhost translation service.
 
-Set Alfred Workflow variables:
+Set Alfred Workflow variables in the **Environment Variables** tab:
 
 ```text
-NLLW_API_URL=http://127.0.0.1:8765
-NLLW_API_TOKEN=optional
+NLLW_API_URL=https://translate.example.com
+NLLW_API_KEY=optional
 ```
+
+`NLLW_API_URL` is required. If it is empty, the workflow shows a configuration warning instead of falling back to localhost.
 
 The backend should implement:
 
@@ -72,35 +74,16 @@ Response:
 {"ok":true,"translation":"你好吗？"}
 ```
 
-### Built-in local service
-
-If `NLLW_API_URL` is empty, the workflow can start its own local service:
-
-```text
-f :start
-f :stop
-f :log
-```
-
-Install dependencies in the workflow folder:
-
-```bash
-./install_deps.sh
-```
-
-The first translation may download/load model files and can take a while.
-
 ## Configuration
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
-| `NLLW_API_URL` | empty | External backend URL. Empty means use built-in local service. |
-| `NLLW_API_TOKEN` | empty | Optional Bearer token. |
+| `NLLW_API_URL` | empty | Remote backend URL. Required. |
+| `NLLW_API_KEY` | empty | Optional Bearer key. |
 | `NLLW_AUTO_TARGET_LANG` | `zho_Hans` | Auto target for non-primary languages. |
 | `NLLW_AUTO_ALT_TARGET_LANG` | `eng_Latn` | Target when input is already primary language. |
-| `NLLW_BACKEND` | `transformers` | Built-in service backend: `transformers` or `ctranslate2`. |
-| `NLLW_MODEL_SIZE` | `600M` | Built-in service model size: `600M` or `1.3B`. |
-| `NLLW_PORT` | `8765` | Built-in local service port. |
+| `NLLW_SRC_LANG` | `eng_Latn` | Fallback source language. |
+| `NLLW_DST_LANG` | `zho_Hans` | Fallback target language. |
 | `NLLW_REQUEST_TIMEOUT` | `25` | HTTP request timeout in seconds. |
 
 ## Language detection

@@ -1,43 +1,26 @@
 #!/usr/bin/env python3
 """
-Alfred workflow bridge for NoLanguageLeftWaiting (nllw).
+Alfred workflow client for TransFlow / NLLW.
 
 Modes:
   script-filter [query]  -> emits Alfred JSON
   action <json>          -> handles selected Alfred item
-  serve                  -> starts local HTTP translation service
-  status                 -> CLI status helper
 
-The Alfred UI should not load a 600M/1.3B model on every keystroke, so this
-workflow keeps nllw in a small localhost daemon and the Script Filter only calls
-that daemon.
+This workflow is a remote API client only. It never starts or calls a built-in
+localhost translation service; set NLLW_API_URL to your backend endpoint.
 """
 from __future__ import annotations
 
 import argparse
-import contextlib
 import dataclasses
-import errno
-import http.client
 import hashlib
 import json
 import os
 import re
-import signal
 import subprocess
-import sys
-import threading
-import time
-import traceback
 import urllib.error
 import urllib.request
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from pathlib import Path
-from typing import Any, Dict, Iterable, Optional, Tuple
-
-BUNDLE_ID = "com.codex.alfred.transflow"
-DEFAULT_HOST = "127.0.0.1"
-DEFAULT_PORT = 8765
+from typing import Any, Dict, Iterable, Optional
 
 # Common aliases. nllw ultimately expects NLLB language identifiers.
 LANG_ALIASES = {
@@ -66,7 +49,7 @@ LANG_ALIASES = {
 PAIR_RE = re.compile(r"^\s*([\w\-\u4e00-\u9fff]+)\s*(?:>|->|=>|2|to)\s*([\w\-\u4e00-\u9fff]+)\s+(.+)$", re.I | re.S)
 TO_RE = re.compile(r"^\s*(?:to|翻译成|译为)\s+([\w\-\u4e00-\u9fff]+)\s+(.+)$", re.I | re.S)
 TARGET_PREFIX_RE = re.compile(r"^\s*(?:@|/)?([\w\-\u4e00-\u9fff]+)[:：]?\s+(.+)$", re.I | re.S)
-QUICK_TARGET_TOKENS = {
+QUICK_TARGET_TERMS = {
     "en", "eng", "english", "英文", "英语", "英",
     "zh", "cn", "中文", "汉语", "中",
     "ja", "jp", "japanese", "日语", "日文", "日",
@@ -94,80 +77,20 @@ LANG_SHORT_ALIASES = {
 }
 
 
-def workflow_dir() -> Path:
-    return Path(__file__).resolve().parent
-
-
-def cache_dir() -> Path:
-    raw = os.environ.get("alfred_workflow_cache")
-    if raw:
-        p = Path(raw)
-    else:
-        p = Path.home() / "Library" / "Caches" / BUNDLE_ID
-    p.mkdir(parents=True, exist_ok=True)
-    return p
-
-
-def data_dir() -> Path:
-    raw = os.environ.get("alfred_workflow_data")
-    if raw:
-        p = Path(raw)
-    else:
-        p = Path.home() / "Library" / "Application Support" / BUNDLE_ID
-    p.mkdir(parents=True, exist_ok=True)
-    return p
-
-
-def log_path() -> Path:
-    return cache_dir() / "server.log"
-
-
-def pid_path() -> Path:
-    return cache_dir() / "server.pid"
-
-
-def python_executable() -> str:
-    # Prefer the workflow venv created by install_deps.sh.
-    venv_py = workflow_dir() / ".venv" / "bin" / "python3"
-    if venv_py.exists():
-        return str(venv_py)
-    return sys.executable or "/usr/bin/python3"
-
-
-def port() -> int:
-    raw = os.environ.get("NLLW_PORT", str(DEFAULT_PORT)).strip()
-    try:
-        value = int(raw)
-    except ValueError:
-        return DEFAULT_PORT
-    if not (1 <= value <= 65535):
-        return DEFAULT_PORT
-    return value
-
-
-def host() -> str:
-    return os.environ.get("NLLW_HOST", DEFAULT_HOST).strip() or DEFAULT_HOST
-
-
 def api_base_url() -> str:
-    # If set, Alfred calls an external/local backend service directly.
-    # Example: http://127.0.0.1:8765 or https://translate.example.com
     raw = os.environ.get("NLLW_API_URL", "").strip()
-    if raw:
-        return raw.rstrip("/")
-    return f"http://{host()}:{port()}"
+    return raw.rstrip("/") if raw else ""
 
 
-def api_token() -> str:
-    return os.environ.get("NLLW_API_TOKEN", "").strip()
-
-
-def using_external_api() -> bool:
-    return bool(os.environ.get("NLLW_API_URL", "").strip())
+def api_key() -> str:
+    return os.environ.get("NLLW_API_KEY", "").strip()
 
 
 def endpoint(path: str) -> str:
-    return f"{api_base_url()}{path}"
+    base = api_base_url()
+    if not base:
+        raise RuntimeError("NLLW_API_URL 未配置。请在 Alfred Workflow 环境变量中设置远程后端地址。")
+    return f"{base}{path}"
 
 
 def normalize_lang(value: str) -> str:
@@ -298,7 +221,7 @@ def parse_translation_query(query: str) -> ParsedQuery:
     # Ultra-short target override: `f ja 你好`, `f 日 how are you`,
     # `f @fr 你好`, `f /ko hello`, etc. Source remains auto-detected.
     m = TARGET_PREFIX_RE.match(query)
-    if m and m.group(1).lower() in QUICK_TARGET_TOKENS:
+    if m and m.group(1).lower() in QUICK_TARGET_TERMS:
         dst_raw, text = m.groups()
         src = detect_source_lang(text)
         dst = normalize_lang(dst_raw)
@@ -381,9 +304,9 @@ def url_json(path: str, payload: Optional[Dict[str, Any]] = None, timeout: float
     url = endpoint(path)
     data = None
     headers = {"Accept": "application/json"}
-    token = api_token()
-    if token:
-        headers["Authorization"] = f"Bearer {token}"
+    key = api_key()
+    if key:
+        headers["Authorization"] = f"Bearer {key}"
     method = "GET"
     if payload is not None:
         data = json_dumps(payload).encode("utf-8")
@@ -395,78 +318,13 @@ def url_json(path: str, payload: Optional[Dict[str, Any]] = None, timeout: float
     return json.loads(raw) if raw else {}
 
 
-def is_server_running(timeout: float = 0.35) -> bool:
-    try:
-        health = url_json("/health", timeout=timeout)
-        return bool(health.get("ok"))
-    except Exception:
-        return False
-
-
-def read_pid() -> Optional[int]:
-    try:
-        raw = pid_path().read_text().strip()
-        return int(raw) if raw else None
-    except Exception:
-        return None
-
-
-def process_exists(pid: int) -> bool:
-    try:
-        os.kill(pid, 0)
-        return True
-    except OSError as e:
-        return e.errno == errno.EPERM
-
-
-def start_server() -> str:
-    if is_server_running():
-        return "TransFlow 服务已经在运行"
-    py = python_executable()
-    log = log_path()
-    log.parent.mkdir(parents=True, exist_ok=True)
-    env = os.environ.copy()
-    env.setdefault("PYTHONUNBUFFERED", "1")
-    with log.open("ab", buffering=0) as fh:
-        subprocess.Popen(
-            [py, str(Path(__file__).resolve()), "serve"],
-            cwd=str(workflow_dir()),
-            env=env,
-            stdin=subprocess.DEVNULL,
-            stdout=fh,
-            stderr=fh,
-            start_new_session=True,
-            close_fds=True,
-        )
-    for _ in range(30):
-        if is_server_running(timeout=0.2):
-            return "TransFlow 服务已启动"
-        time.sleep(0.1)
-    return f"已尝试启动，模型可能仍在初始化；日志：{log}"
-
-
-def stop_server() -> str:
-    # Prefer graceful HTTP shutdown.
-    try:
-        url_json("/shutdown", payload={}, timeout=0.8)
-        time.sleep(0.2)
-    except Exception:
-        pass
-    pid = read_pid()
-    if pid and process_exists(pid):
-        with contextlib.suppress(Exception):
-            os.kill(pid, signal.SIGTERM)
-            time.sleep(0.2)
-    with contextlib.suppress(FileNotFoundError):
-        pid_path().unlink()
-    return "TransFlow 服务已停止"
-
-
 def notify(title: str, message: str = "") -> None:
     # Works when run inside Alfred; silently ignore outside macOS GUI sessions.
     script = f'display notification {json.dumps(message)} with title {json.dumps(title)}'
-    with contextlib.suppress(Exception):
+    try:
         subprocess.run(["/usr/bin/osascript", "-e", script], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=2)
+    except Exception:
+        pass
 
 
 def copy_to_clipboard(text: str) -> None:
@@ -483,27 +341,15 @@ def action(arg: str) -> None:
         text = payload.get("text", "")
         copy_to_clipboard(text)
         notify("TransFlow", "译文已复制")
-    elif act == "start":
-        msg = start_server()
-        notify("TransFlow", msg)
-    elif act == "stop":
-        msg = stop_server()
-        notify("TransFlow", msg)
-    elif act == "copy_install":
-        cmd = f'cd {str(workflow_dir()).replace(chr(39), chr(39)+"\\"+chr(39)+chr(39))} && ./install_deps.sh'
-        copy_to_clipboard(cmd)
-        notify("TransFlow", "安装命令已复制到剪贴板")
-    elif act == "copy_log_path":
-        copy_to_clipboard(str(log_path()))
-        notify("TransFlow", "日志路径已复制")
     else:
         notify("TransFlow", f"未知动作：{act}")
 
 
 def script_filter(query: str) -> None:
     q = (query or "").strip()
+    base = api_base_url()
+
     if not q:
-        running = is_server_running()
         emit_items([
             item(
                 "直接输入要翻译的内容",
@@ -512,32 +358,12 @@ def script_filter(query: str) -> None:
                 autocomplete="how are you",
             ),
             item(
-                "服务状态：" + ("运行中" if running else "未运行"),
-                (f"后端：{api_base_url()}" if using_external_api() else "回车" + ("停止后台翻译服务" if running else "启动后台翻译服务，首次加载/下载模型会较慢")),
-                arg=None if using_external_api() else {"action": "stop" if running else "start"},
-                valid=not using_external_api(),
-                uid="status",
-            ),
-            item(
-                "安装依赖：pip install nllw",
-                "回车复制安装命令；建议先在终端运行，首次会下载模型",
-                arg={"action": "copy_install"},
-                uid="install",
+                "远程后端：" + (base or "未配置"),
+                "在 Environment Variables 中设置 NLLW_API_URL 和 NLLW_API_KEY" if not base else "仅请求远程 API，不使用本地服务",
+                valid=False,
+                uid="remote-backend-status",
             ),
         ])
-        return
-
-    if q in {":start", "start", "启动"}:
-        emit_items([item("启动 TransFlow 后台服务", "回车启动；首次加载/下载模型会较慢", arg={"action": "start"}, uid="start")])
-        return
-    if q in {":stop", "stop", "停止"}:
-        emit_items([item("停止 TransFlow 后台服务", "回车停止后台模型进程", arg={"action": "stop"}, uid="stop")])
-        return
-    if q in {":log", "log", "日志"}:
-        emit_items([item("复制日志路径", str(log_path()), arg={"action": "copy_log_path"}, uid="log")])
-        return
-    if q in {":install", "install", "安装"}:
-        emit_items([item("复制依赖安装命令", "在终端执行该命令安装 nllw 依赖", arg={"action": "copy_install"}, uid="install")])
         return
 
     try:
@@ -546,29 +372,17 @@ def script_filter(query: str) -> None:
         emit_items([item("无法解析翻译请求", str(e), valid=False)])
         return
 
-    if not is_server_running(timeout=0.3):
-        if using_external_api():
-            emit_items([
-                item(
-                    "后端翻译服务不可用",
-                    f"请检查 NLLW_API_URL={api_base_url()}",
-                    valid=False,
-                    uid="api-not-running",
-                ),
-                item(f"待翻译：{parsed.text[:70]}", f"方向：{parsed.display_pair}", valid=False),
-                *quick_target_items(parsed),
-            ])
-        else:
-            emit_items([
-                item(
-                    "TransFlow 服务未启动",
-                    "回车启动后台服务，然后再次输入翻译内容",
-                    arg={"action": "start"},
-                    uid="server-not-running",
-                ),
-                item(f"待翻译：{parsed.text[:70]}", f"方向：{parsed.display_pair}", valid=False),
-                *quick_target_items(parsed),
-            ])
+    if not base:
+        emit_items([
+            item(
+                "未配置远程后端",
+                "请在 Alfred Workflow 的 Environment Variables 中设置 NLLW_API_URL，例如：https://translate.example.com",
+                valid=False,
+                uid="api-url-missing",
+            ),
+            item(f"待翻译：{parsed.text[:70]}", f"方向：{parsed.display_pair}", valid=False),
+            *quick_target_items(parsed),
+        ])
         return
 
     timeout = float(os.environ.get("NLLW_REQUEST_TIMEOUT", "25"))
@@ -579,18 +393,15 @@ def script_filter(query: str) -> None:
             detail = e.read().decode("utf-8")
         except Exception:
             detail = str(e)
-        emit_items([item("翻译失败", detail[:220], valid=False), item("复制日志路径", str(log_path()), arg={"action": "copy_log_path"})])
+        emit_items([item("翻译失败", detail[:220], valid=False)])
         return
     except Exception as e:
-        emit_items([
-            item("翻译服务暂时不可用", f"{type(e).__name__}: {e}", valid=False),
-            item("重启 NLLW 服务", "回车重启后台服务", arg={"action": "stop"}, uid="restart-stop"),
-        ])
+        emit_items([item("远程翻译服务不可用", f"{type(e).__name__}: {e}", valid=False)])
         return
 
     if not resp.get("ok"):
         err = resp.get("error", "unknown error")
-        emit_items([item("翻译失败", err[:220], valid=False), item("复制日志路径", str(log_path()), arg={"action": "copy_log_path"})])
+        emit_items([item("翻译失败", str(err)[:220], valid=False)])
         return
 
     translated = (resp.get("translation") or "").strip()
@@ -620,160 +431,19 @@ def script_filter(query: str) -> None:
     emit_items(items)
 
 
-class NLLWEngine:
-    def __init__(self) -> None:
-        self._nllw = None
-        self._models: Dict[Tuple[str, str, str], Any] = {}
-        self._lock = threading.RLock()
-        self.backend = os.environ.get("NLLW_BACKEND", "transformers")
-        self.size = os.environ.get("NLLW_MODEL_SIZE", "600M")
-
-    def _import_nllw(self):
-        with self._lock:
-            if self._nllw is None:
-                try:
-                    import nllw  # type: ignore
-                except ImportError as e:
-                    raise RuntimeError(
-                        "未安装 nllw。请在 workflow 目录运行 ./install_deps.sh，或执行：python3 -m pip install nllw"
-                    ) from e
-                self._nllw = nllw
-        return self._nllw
-
-    def _model(self, src: str):
-        key = (self.backend, self.size, src)
-        with self._lock:
-            if key not in self._models:
-                nllw = self._import_nllw()
-                print(f"[transflow] loading model backend={self.backend} size={self.size} src={src}", flush=True)
-                self._models[key] = nllw.load_model(src_langs=[src], nllb_backend=self.backend, nllb_size=self.size)
-                print(f"[transflow] model loaded for src={src}", flush=True)
-            return self._models[key]
-
-    def translate(self, src: str, dst: str, text: str) -> Dict[str, Any]:
-        text = text.strip()
-        if not text:
-            return {"ok": True, "translation": "", "validated": "", "buffer": ""}
-        nllw = self._import_nllw()
-        model = self._model(src)
-        translator = nllw.OnlineTranslation(model, input_languages=[src], output_languages=[dst])
-        tokens = [nllw.timed_text.TimedText(text)]
-        translator.insert_tokens(tokens)
-        validated, buffer = translator.process()
-        validated_s = str(validated or "").strip()
-        buffer_s = str(buffer or "").strip()
-        translation = (validated_s + (" " if validated_s and buffer_s else "") + buffer_s).strip()
-        return {"ok": True, "translation": translation, "validated": validated_s, "buffer": buffer_s}
-
-
-_ENGINE = NLLWEngine()
-_SHOULD_SHUTDOWN = False
-
-
-class Handler(BaseHTTPRequestHandler):
-    server_version = "NLLWAlfred/0.1"
-
-    def log_message(self, fmt: str, *args: Any) -> None:
-        print(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] {self.address_string()} {fmt % args}", flush=True)
-
-    def _send_json(self, obj: Dict[str, Any], status: int = 200) -> None:
-        raw = json_dumps(obj).encode("utf-8")
-        self.send_response(status)
-        self.send_header("Content-Type", "application/json; charset=utf-8")
-        self.send_header("Content-Length", str(len(raw)))
-        self.end_headers()
-        self.wfile.write(raw)
-
-    def _read_json(self) -> Dict[str, Any]:
-        try:
-            length = int(self.headers.get("Content-Length", "0") or "0")
-        except ValueError as e:
-            raise ValueError("invalid Content-Length") from e
-        if length > 1024 * 1024:
-            raise ValueError("request body too large")
-        raw = self.rfile.read(length).decode("utf-8") if length else "{}"
-        return json.loads(raw or "{}")
-
-    def do_GET(self) -> None:  # noqa: N802
-        if self.path.startswith("/health"):
-            self._send_json({"ok": True, "backend": _ENGINE.backend, "size": _ENGINE.size, "pid": os.getpid()})
-        else:
-            self._send_json({"ok": False, "error": "not found"}, status=404)
-
-    def do_POST(self) -> None:  # noqa: N802
-        global _SHOULD_SHUTDOWN
-        if self.path.startswith("/shutdown"):
-            self._send_json({"ok": True})
-            _SHOULD_SHUTDOWN = True
-            # Shutdown from another thread after response is flushed.
-            import threading
-            threading.Thread(target=self.server.shutdown, daemon=True).start()
-            return
-        if self.path.startswith("/translate"):
-            try:
-                payload = self._read_json()
-                src = normalize_lang(payload.get("src", default_src()))
-                dst = normalize_lang(payload.get("dst", default_dst()))
-                text = str(payload.get("text", ""))
-                result = _ENGINE.translate(src, dst, text)
-                self._send_json(result)
-            except Exception as e:
-                traceback.print_exc()
-                self._send_json({"ok": False, "error": f"{type(e).__name__}: {e}"}, status=500)
-            return
-        self._send_json({"ok": False, "error": "not found"}, status=404)
-
-
-def serve() -> None:
-    cache_dir().mkdir(parents=True, exist_ok=True)
-    pid_path().write_text(str(os.getpid()))
-    print(f"[transflow] serving on {host()}:{port()} pid={os.getpid()}", flush=True)
-    try:
-        httpd = ThreadingHTTPServer((host(), port()), Handler)
-        httpd.serve_forever(poll_interval=0.2)
-    finally:
-        with contextlib.suppress(FileNotFoundError):
-            if read_pid() == os.getpid():
-                pid_path().unlink()
-        print("[transflow] stopped", flush=True)
-
-
-def status_cli() -> None:
-    if is_server_running(timeout=1):
-        print("running", json_dumps(url_json("/health", timeout=1)))
-    else:
-        pid = read_pid()
-        if pid and process_exists(pid):
-            print(f"pid {pid} exists but health check failed")
-        else:
-            print("stopped")
-
-
 def main(argv: Optional[list[str]] = None) -> int:
-    parser = argparse.ArgumentParser(description="Alfred workflow bridge for nllw")
+    parser = argparse.ArgumentParser(description="Alfred workflow client for TransFlow")
     sub = parser.add_subparsers(dest="cmd")
     sf = sub.add_parser("script-filter")
     sf.add_argument("query", nargs="*", default=[])
     act = sub.add_parser("action")
     act.add_argument("arg", nargs="?", default="")
-    sub.add_parser("serve")
-    sub.add_parser("status")
-    sub.add_parser("start")
-    sub.add_parser("stop")
     args = parser.parse_args(argv)
 
     if args.cmd == "script-filter":
         script_filter(" ".join(args.query))
     elif args.cmd == "action":
         action(args.arg)
-    elif args.cmd == "serve":
-        serve()
-    elif args.cmd == "status":
-        status_cli()
-    elif args.cmd == "start":
-        print(start_server())
-    elif args.cmd == "stop":
-        print(stop_server())
     else:
         parser.print_help()
         return 2

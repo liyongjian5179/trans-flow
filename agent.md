@@ -33,9 +33,9 @@ model-cache/             Host bind mount for downloaded model files
 - `backend/lang.py` and `workflow/transflow.py` both contain language alias/detection logic.
   Keep them in sync when changing aliases or detection rules.
 - Do not introduce control characters into regex strings. Word boundaries should be literal `\\b` in raw strings.
-- The workflow can call either:
-  - an external backend via `NLLW_API_URL`, or
-  - its own local service started with `f :start`.
+- The Alfred workflow is a remote API client only.
+- It must never start or fall back to a built-in localhost translation service.
+- Set `NLLW_API_URL` to the backend endpoint before using Alfred.
 - The backend lazily loads NLLW models on first translation. Avoid tests that load models unless explicitly needed.
 - `dist/TransFlow.alfredworkflow` is a generated artifact.
 - `model-cache/` should not contain committed model files.
@@ -71,13 +71,13 @@ Rebuild the workflow after changing files under `workflow/`.
 python3 -m venv .venv
 . .venv/bin/activate
 pip install -r backend/requirements.txt
-uvicorn backend.app:app --host 127.0.0.1 --port 8765
+uvicorn backend.app:app --host 127.0.0.1 --port 18765
 ```
 
 Then configure Alfred:
 
 ```text
-NLLW_API_URL=http://127.0.0.1:8765
+NLLW_API_URL=http://127.0.0.1:18765
 ```
 
 ## Docker deployment
@@ -91,7 +91,7 @@ docker compose up -d --build
 Health check:
 
 ```bash
-curl http://127.0.0.1:8765/health
+curl http://127.0.0.1:18765/health
 ```
 
 Smoke test a running backend:
@@ -100,15 +100,17 @@ Smoke test a running backend:
 ./scripts/smoke_test_api.sh
 ```
 
-If `NLLW_API_TOKEN` is set, export the same token before running the smoke test.
+If `NLLW_API_KEY` is set, export the same key before running the smoke test.
 
 ## Configuration notes
 
 Key environment variables:
 
-- `NLLW_API_TOKEN`: optional bearer token; strongly recommended for public deployments.
+- `NLLW_API_KEY`: optional bearer key; strongly recommended for public deployments.
 - `NLLW_BACKEND`: default `transformers`; `ctranslate2` may be faster if supported.
 - `NLLW_MODEL_SIZE`: default `600M`.
+- `NLLW_PORT`: container listen port; default `18765`.
+- `NLLW_HOST_PORT`: Docker Compose host-side published port; change this if the host port conflicts.
 - `NLLW_AUTO_TARGET_LANG`: default `zho_Hans`.
 - `NLLW_AUTO_ALT_TARGET_LANG`: default `eng_Latn`.
 - `NLLW_MAX_TEXT_CHARS`: default `4000`.
@@ -123,7 +125,6 @@ Key environment variables:
 ```bash
 python3 workflow/transflow.py script-filter 'how are you'
 python3 workflow/transflow.py script-filter 'ja 你好'
-python3 workflow/transflow.py script-filter ':start'
 ```
 
 - For public VPS docs, include both Nginx and Caddy examples where reverse proxy guidance is changed.

@@ -12,6 +12,20 @@ Default routing:
 
 You can override the target in Alfred, e.g. `f ja 你好`, `f fr hello`.
 
+
+## Download
+
+Download and import the ready-to-use Alfred Workflow:
+
+[Download TransFlow.alfredworkflow](https://github.com/liyongjian5179/trans-flow/raw/main/dist/TransFlow.alfredworkflow)
+
+After importing, set Alfred Workflow **Environment Variables**:
+
+```text
+NLLW_API_URL=https://your-translate-domain.example.com
+NLLW_API_KEY=your-api-key
+```
+
 ## Repository layout
 
 ```text
@@ -28,7 +42,7 @@ Dockerfile               Backend image
 
 ```bash
 cp .env.example .env
-# Edit .env and set a long random NLLW_API_TOKEN if exposing publicly.
+# Edit .env and set a long random NLLW_API_KEY if exposing publicly.
 mkdir -p model-cache
 docker compose up -d --build
 ```
@@ -36,15 +50,15 @@ docker compose up -d --build
 Health check:
 
 ```bash
-curl http://127.0.0.1:8765/health
+curl http://127.0.0.1:18765/health
 ```
 
 Translate:
 
 ```bash
-curl -s http://127.0.0.1:8765/translate \
+curl -s http://127.0.0.1:18765/translate \
   -H 'Content-Type: application/json' \
-  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
   -d '{"text":"how are you","src":"auto","dst":"auto"}'
 ```
 
@@ -71,12 +85,21 @@ docker compose up -d --build
 If exposed to the Internet, set at least:
 
 ```env
-NLLW_API_TOKEN=a-long-random-secret
+NLLW_API_KEY=a-long-random-secret
 ```
+
+If `18765` conflicts with another service, change the host-side port in `.env`:
+
+```env
+NLLW_HOST_PORT=28765
+NLLW_PORT=18765
+```
+
+Then access the service on `http://127.0.0.1:28765`.
 
 Then either:
 
-- expose `8765` directly with firewall restrictions, or
+- expose `18765` directly with firewall restrictions, or
 - put it behind Nginx/Caddy with HTTPS.
 
 Example Nginx reverse proxy:
@@ -86,7 +109,7 @@ server {
     server_name translate.example.com;
 
     location / {
-        proxy_pass http://127.0.0.1:8765;
+        proxy_pass http://127.0.0.1:18765;
         proxy_set_header Host $host;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
@@ -98,9 +121,12 @@ Example Caddy reverse proxy:
 
 ```caddyfile
 translate.example.com {
-    reverse_proxy 127.0.0.1:8765
+    reverse_proxy 127.0.0.1:18765
 }
 ```
+
+If you changed `NLLW_HOST_PORT`, use that host port in `proxy_pass` /
+`reverse_proxy`.
 
 ### 3. Configure Alfred
 
@@ -114,8 +140,10 @@ Set Workflow variables:
 
 ```text
 NLLW_API_URL=https://translate.example.com
-NLLW_API_TOKEN=your-token
+NLLW_API_KEY=your-api-key
 ```
+
+`NLLW_API_URL` is required. The Alfred Workflow is a remote API client only and will not fall back to localhost.
 
 Use:
 
@@ -171,7 +199,7 @@ Public liveness endpoint. Does not load model.
 
 ### `POST /translate`
 
-Requires `Authorization: Bearer ...` if `NLLW_API_TOKEN` is set.
+Requires `Authorization: Bearer ...` if `NLLW_API_KEY` is set.
 
 Request:
 
@@ -217,9 +245,11 @@ Response:
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
-| `NLLW_API_TOKEN` | empty | Optional bearer token. Strongly recommended on VPS. |
+| `NLLW_API_KEY` | empty | Optional bearer key. Strongly recommended on VPS. |
 | `NLLW_BACKEND` | `transformers` | nllw backend. `ctranslate2` may be faster if supported. |
 | `NLLW_MODEL_SIZE` | `600M` | NLLB model size. Try `1.3B` only with enough RAM/VRAM. |
+| `NLLW_PORT` | `18765` | Container listen port. |
+| `NLLW_HOST_PORT` | `18765` | Docker Compose host-side published port. |
 | `NLLW_AUTO_TARGET_LANG` | `zho_Hans` | Target for non-Chinese input. |
 | `NLLW_AUTO_ALT_TARGET_LANG` | `eng_Latn` | Target when input is already Chinese. |
 | `NLLW_MAX_TEXT_CHARS` | `4000` | Request text limit. |
@@ -252,11 +282,13 @@ python3 -m unittest discover -s tests -v
 python3 -m venv .venv
 . .venv/bin/activate
 pip install -r backend/requirements.txt
-uvicorn backend.app:app --host 127.0.0.1 --port 8765
+uvicorn backend.app:app --host 127.0.0.1 --port 18765
 ```
 
 Then set Alfred:
 
 ```text
-NLLW_API_URL=http://127.0.0.1:8765
+NLLW_API_URL=http://127.0.0.1:18765
 ```
+
+This uses your locally running backend as an explicit remote API URL for Alfred.

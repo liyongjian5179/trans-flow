@@ -5,7 +5,7 @@ Docker-friendly HTTP backend for Alfred / other clients.
 ## API
 
 - `GET /health` — liveness, does not load the model
-- `GET /ready` — shows loaded model cache, requires token if configured
+- `GET /ready` — shows loaded model cache, requires API key if configured
 - `GET /languages` — aliases and display names
 - `POST /detect` — fast local language detection
 - `POST /translate` — translate text
@@ -49,10 +49,11 @@ You can force direction:
 
 ## Auth
 
-Set `NLLW_API_TOKEN` to require:
+Set `NLLW_API_KEY` to require:
 
 ```http
-Authorization: Bearer YOUR_TOKEN
+Authorization: Bearer YOUR_API_KEY
 ```
+
 
 `/health` remains public for load balancer health checks.

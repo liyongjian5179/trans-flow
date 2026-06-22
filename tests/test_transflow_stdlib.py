@@ -81,20 +81,36 @@ class WorkflowTests(unittest.TestCase):
         parsed = self.workflow.parse_translation_query("to fr hello")
         self.assertEqual((parsed.src, parsed.dst, parsed.text), ("eng_Latn", "fra_Latn", "hello"))
 
-    def test_bad_port_falls_back_to_default(self):
-        old = os.environ.get("NLLW_PORT")
+    def test_remote_api_url_is_required(self):
+        old_api_url = os.environ.get("NLLW_API_URL")
         try:
-            for value in ["bad", "0", "70000", ""]:
-                with self.subTest(value=value):
-                    os.environ["NLLW_PORT"] = value
-                    self.assertEqual(self.workflow.port(), self.workflow.DEFAULT_PORT)
-            os.environ["NLLW_PORT"] = "12345"
-            self.assertEqual(self.workflow.port(), 12345)
+            os.environ.pop("NLLW_API_URL", None)
+            self.assertEqual(self.workflow.api_base_url(), "")
+            with self.assertRaises(RuntimeError):
+                self.workflow.endpoint("/health")
+
+            os.environ["NLLW_API_URL"] = "https://translate.example.com/"
+            self.assertEqual(self.workflow.api_base_url(), "https://translate.example.com")
+            self.assertEqual(self.workflow.endpoint("/health"), "https://translate.example.com/health")
         finally:
-            if old is None:
-                os.environ.pop("NLLW_PORT", None)
+            if old_api_url is None:
+                os.environ.pop("NLLW_API_URL", None)
             else:
-                os.environ["NLLW_PORT"] = old
+                os.environ["NLLW_API_URL"] = old_api_url
+
+    def test_api_key(self):
+        old_key = os.environ.get("NLLW_API_KEY")
+        try:
+            os.environ.pop("NLLW_API_KEY", None)
+            self.assertEqual(self.workflow.api_key(), "")
+
+            os.environ["NLLW_API_KEY"] = "new-key"
+            self.assertEqual(self.workflow.api_key(), "new-key")
+        finally:
+            if old_key is None:
+                os.environ.pop("NLLW_API_KEY", None)
+            else:
+                os.environ["NLLW_API_KEY"] = old_key
 
     def test_stable_uid_is_deterministic(self):
         a = self.workflow.stable_uid("tr", "en", "zh", "hello")
