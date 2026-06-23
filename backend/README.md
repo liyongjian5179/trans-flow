@@ -32,6 +32,15 @@ with `NLLW_WARMUP_SRCS`, for example:
 NLLW_WARMUP_SRCS=zho_Hans,eng_Latn,jpn_Jpan
 ```
 
+Repeated translations are served from an in-memory LRU cache. Configure it with:
+
+```env
+NLLW_TRANSLATION_CACHE_SIZE=512
+```
+
+All backend endpoints include `backend_version` (default `0.2.0`) so deployments
+can verify that the running container is up to date.
+
 You can force direction:
 
 ```json

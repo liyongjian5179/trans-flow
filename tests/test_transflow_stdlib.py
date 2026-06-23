@@ -101,6 +101,22 @@ class BackendTranslatorTests(unittest.TestCase):
         self.assertEqual(translator.warmup(["zho_Hans", "", "eng_Latn"]), ["zho_Hans", "eng_Latn"])
         self.assertEqual(loaded, ["zho_Hans", "eng_Latn"])
 
+    def test_translation_cache_lru(self):
+        mod = self.translator_mod
+        translator = mod.NLLWTranslator(mod.EngineConfig(cache_size=1))
+        key1 = ("zho_Hans", "eng_Latn", "你好")
+        key2 = ("eng_Latn", "zho_Hans", "hello")
+        translator._cache_set(key1, {"ok": True, "translation": "hello", "validated": "hello", "buffer": "", "cache_hit": False, "elapsed_ms": 10.0})
+        cached = translator._cache_get(key1)
+        self.assertIsNotNone(cached)
+        self.assertEqual(cached["translation"], "hello")
+        self.assertTrue(cached["cache_hit"])
+        self.assertEqual(cached["elapsed_ms"], 0.0)
+
+        translator._cache_set(key2, {"ok": True, "translation": "你好", "validated": "你好", "buffer": "", "cache_hit": False, "elapsed_ms": 10.0})
+        self.assertIsNone(translator._cache_get(key1))
+        self.assertEqual(translator.cache_entries, 1)
+
 
 class WorkflowTests(unittest.TestCase):
     @classmethod

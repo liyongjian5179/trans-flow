@@ -36,23 +36,26 @@ def env_list(name: str, default: str = "") -> list[str]:
     return [normalize_lang(item) for item in raw.split(",") if item.strip()]
 
 
+BACKEND_VERSION = env("TRANSFLOW_BACKEND_VERSION", "0.2.0")
 API_KEY = env("NLLW_API_KEY")
 AUTO_TARGET_LANG = normalize_lang(env("NLLW_AUTO_TARGET_LANG", "zho_Hans"))
 AUTO_ALT_TARGET_LANG = normalize_lang(env("NLLW_AUTO_ALT_TARGET_LANG", "eng_Latn"))
 MAX_TEXT_CHARS = env_int("NLLW_MAX_TEXT_CHARS", 4000)
 WARMUP_SRCS = env_list("NLLW_WARMUP_SRCS", "zho_Hans,eng_Latn")
+TRANSLATION_CACHE_SIZE = env_int("NLLW_TRANSLATION_CACHE_SIZE", 512, minimum=0)
 
 translator = NLLWTranslator(
     EngineConfig(
         backend=env("NLLW_BACKEND", "transformers"),
         model_size=env("NLLW_MODEL_SIZE", "600M"),
+        cache_size=TRANSLATION_CACHE_SIZE,
     )
 )
 
 app = FastAPI(
     title="TransFlow API",
     description="Docker-friendly HTTP API for NoLanguageLeftWaiting / NLLB translation.",
-    version="0.1.0",
+    version=BACKEND_VERSION,
 )
 
 allowed_origins = [o for o in env("NLLW_CORS_ORIGINS", "*").split(",") if o]
@@ -79,6 +82,7 @@ class TranslateRequest(BaseModel):
 
 class TranslateResponse(BaseModel):
     ok: bool
+    backend_version: str
     translation: str
     validated: str = ""
     buffer: str = ""
@@ -87,6 +91,8 @@ class TranslateResponse(BaseModel):
     detected_src: str
     backend: str
     model_size: str
+    cache_hit: bool = False
+    elapsed_ms: float = 0.0
 
 
 def require_api_key(authorization: str | None = Header(default=None)) -> None:
@@ -101,24 +107,34 @@ def require_api_key(authorization: str | None = Header(default=None)) -> None:
 def health() -> dict[str, object]:
     return {
         "ok": True,
+        "backend_version": BACKEND_VERSION,
         "uptime_seconds": round(time.time() - STARTED_AT, 3),
         "backend": translator.config.backend,
         "model_size": translator.config.model_size,
         "auth_enabled": bool(API_KEY),
         "warmup_srcs": WARMUP_SRCS,
         "loaded_models": translator.loaded_models,
+        "translation_cache_size": TRANSLATION_CACHE_SIZE,
+        "translation_cache_entries": translator.cache_entries,
     }
 
 
 @app.get("/ready", dependencies=[Depends(require_api_key)])
 def ready() -> dict[str, object]:
-    return {"ok": True, "loaded_models": translator.loaded_models}
+    return {
+        "ok": True,
+        "backend_version": BACKEND_VERSION,
+        "loaded_models": translator.loaded_models,
+        "translation_cache_size": TRANSLATION_CACHE_SIZE,
+        "translation_cache_entries": translator.cache_entries,
+    }
 
 
 @app.get("/languages")
 def languages() -> dict[str, object]:
     return {
         "ok": True,
+        "backend_version": BACKEND_VERSION,
         "aliases": LANG_ALIASES,
         "display_names": LANG_DISPLAY_NAMES,
         "auto_target_lang": AUTO_TARGET_LANG,
@@ -139,6 +155,7 @@ def translate(req: TranslateRequest) -> TranslateResponse:
     result = translator.translate(text=text, src=src, dst=dst)
     return TranslateResponse(
         ok=True,
+        backend_version=BACKEND_VERSION,
         translation=str(result.get("translation", "")),
         validated=str(result.get("validated", "")),
         buffer=str(result.get("buffer", "")),
@@ -147,6 +164,8 @@ def translate(req: TranslateRequest) -> TranslateResponse:
         detected_src=detected_src,
         backend=translator.config.backend,
         model_size=translator.config.model_size,
+        cache_hit=bool(result.get("cache_hit", False)),
+        elapsed_ms=float(result.get("elapsed_ms", 0.0)),
     )
 
 
@@ -154,4 +173,4 @@ def translate(req: TranslateRequest) -> TranslateResponse:
 def detect(payload: dict[str, str]) -> dict[str, object]:
     text = (payload.get("text") or "").strip()
     src = detect_source_lang(text)
-    return {"ok": True, "src": src, "dst": choose_auto_dst(src, AUTO_TARGET_LANG, AUTO_ALT_TARGET_LANG)}
+    return {"ok": True, "backend_version": BACKEND_VERSION, "src": src, "dst": choose_auto_dst(src, AUTO_TARGET_LANG, AUTO_ALT_TARGET_LANG)}

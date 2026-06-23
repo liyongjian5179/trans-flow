@@ -53,6 +53,9 @@ Health check:
 curl http://127.0.0.1:18765/health
 ```
 
+`/health` includes `backend_version`, `loaded_models`, and cache status so you
+can confirm which backend build is running after deployment.
+
 Translate:
 
 ```bash
@@ -67,6 +70,8 @@ Model cache is persisted in the local bind-mounted directory `./model-cache`, so
 By default, the backend preloads Chinese and English source models on startup
 (`NLLW_WARMUP_SRCS=zho_Hans,eng_Latn`) so Chinese↔English requests do not wait
 for model loading after the service is ready.
+The backend also keeps an in-memory LRU translation cache
+(`NLLW_TRANSLATION_CACHE_SIZE=512`) so repeated queries return immediately.
 
 ## VPS deployment notes
 
@@ -210,6 +215,7 @@ Response:
 ```json
 {
   "ok": true,
+  "backend_version": "0.2.0",
   "translation": "你好吗？",
   "validated": "",
   "buffer": "你好吗？",
@@ -217,7 +223,9 @@ Response:
   "dst": "zho_Hans",
   "detected_src": "eng_Latn",
   "backend": "transformers",
-  "model_size": "600M"
+  "model_size": "600M",
+  "cache_hit": false,
+  "elapsed_ms": 1234.5
 }
 ```
 
@@ -240,9 +248,11 @@ Response:
 | Variable | Default | Meaning |
 | --- | --- | --- |
 | `NLLW_API_KEY` | empty | Optional bearer key. Strongly recommended on VPS. |
+| `TRANSFLOW_BACKEND_VERSION` | `0.2.0` | Version string returned by backend endpoints for deployment verification. |
 | `NLLW_BACKEND` | `transformers` | nllw backend. `ctranslate2` may be faster if supported. |
 | `NLLW_MODEL_SIZE` | `600M` | NLLB model size. Try `1.3B` only with enough RAM/VRAM. |
 | `NLLW_WARMUP_SRCS` | `zho_Hans,eng_Latn` | Comma-separated source languages to preload on backend startup. |
+| `NLLW_TRANSLATION_CACHE_SIZE` | `512` | In-memory LRU cache entries for repeated translations. Set `0` to disable. |
 | `NLLW_PORT` | `18765` | Container listen port. |
 | `NLLW_HOST_PORT` | `18765` | Docker Compose host-side published port. |
 | `NLLW_AUTO_TARGET_LANG` | `zho_Hans` | Target for non-Chinese input. |

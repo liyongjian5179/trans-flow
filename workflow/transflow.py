@@ -435,7 +435,18 @@ def script_filter(query: str) -> None:
             *quick_target_items(parsed),
         ])
         return
+    meta = []
+    backend_version = resp.get("backend_version")
+    if backend_version:
+        meta.append(f"后端 {backend_version}")
+    if resp.get("cache_hit"):
+        meta.append("缓存命中")
+    elapsed = resp.get("elapsed_ms")
+    if isinstance(elapsed, (int, float)) and elapsed > 0:
+        meta.append(f"{elapsed:.0f}ms")
     subtitle = f"{parsed.display_pair} · 回车复制译文"
+    if meta:
+        subtitle += " · " + " · ".join(meta)
     mods = {
         "cmd": {
             "valid": True,

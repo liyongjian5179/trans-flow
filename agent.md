@@ -107,9 +107,11 @@ If `NLLW_API_KEY` is set, export the same key before running the smoke test.
 Key environment variables:
 
 - `NLLW_API_KEY`: optional bearer key; strongly recommended for public deployments.
+- `TRANSFLOW_BACKEND_VERSION`: version string returned by backend endpoints; default `0.2.0`.
 - `NLLW_BACKEND`: default `transformers`; `ctranslate2` may be faster if supported.
 - `NLLW_MODEL_SIZE`: default `600M`.
 - `NLLW_WARMUP_SRCS`: default `zho_Hans,eng_Latn`; source languages to preload on startup.
+- `NLLW_TRANSLATION_CACHE_SIZE`: default `512`; in-memory LRU cache entries for repeated translations.
 - `NLLW_PORT`: container listen port; default `18765`.
 - `NLLW_HOST_PORT`: Docker Compose host-side published port; change this if the host port conflicts.
 - `NLLW_AUTO_TARGET_LANG`: default `zho_Hans`.

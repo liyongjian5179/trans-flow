@@ -4,6 +4,8 @@ from __future__ import annotations
 import logging
 import re
 import threading
+import time
+from collections import OrderedDict
 from dataclasses import dataclass
 from typing import Any
 
@@ -15,6 +17,7 @@ LEADING_LIST_MARKER_RE = re.compile(r"^\s*(?:[-*•]\s+)+")
 class EngineConfig:
     backend: str = "transformers"
     model_size: str = "600M"
+    cache_size: int = 512
 
 
 class NLLWTranslator:
@@ -22,6 +25,7 @@ class NLLWTranslator:
         self.config = config
         self._nllw: Any | None = None
         self._models: dict[tuple[str, str, str], Any] = {}
+        self._cache: OrderedDict[tuple[str, str, str], dict[str, str | bool | float]] = OrderedDict()
         self._lock = threading.RLock()
 
     def _import_nllw(self) -> Any:
@@ -52,6 +56,33 @@ class NLLWTranslator:
     @property
     def loaded_models(self) -> list[str]:
         return [f"{backend}:{size}:{src}" for backend, size, src in self._models]
+
+    @property
+    def cache_entries(self) -> int:
+        with self._lock:
+            return len(self._cache)
+
+    def _cache_get(self, key: tuple[str, str, str]) -> dict[str, str | bool | float] | None:
+        if self.config.cache_size <= 0:
+            return None
+        with self._lock:
+            cached = self._cache.get(key)
+            if cached is None:
+                return None
+            self._cache.move_to_end(key)
+            result = dict(cached)
+            result["cache_hit"] = True
+            result["elapsed_ms"] = 0.0
+            return result
+
+    def _cache_set(self, key: tuple[str, str, str], value: dict[str, str | bool | float]) -> None:
+        if self.config.cache_size <= 0:
+            return
+        with self._lock:
+            self._cache[key] = dict(value)
+            self._cache.move_to_end(key)
+            while len(self._cache) > self.config.cache_size:
+                self._cache.popitem(last=False)
 
     def warmup(self, src_langs: list[str]) -> list[str]:
         loaded: list[str] = []
@@ -103,10 +134,16 @@ class NLLWTranslator:
         _tokens, result = simple_translation(text)
         return NLLWTranslator._clean_translation(NLLWTranslator._text_part(result))
 
-    def translate(self, *, text: str, src: str, dst: str) -> dict[str, str | bool]:
+    def translate(self, *, text: str, src: str, dst: str) -> dict[str, str | bool | float]:
+        started = time.perf_counter()
         text = (text or "").strip()
         if not text:
-            return {"ok": True, "translation": "", "validated": "", "buffer": ""}
+            return {"ok": True, "translation": "", "validated": "", "buffer": "", "cache_hit": False, "elapsed_ms": 0.0}
+
+        cache_key = (src, dst, text)
+        cached = self._cache_get(cache_key)
+        if cached is not None:
+            return cached
 
         nllw = self._import_nllw()
         model = self._model(src)
@@ -114,7 +151,16 @@ class NLLWTranslator:
         try:
             translation = self._direct_translation(translator, text)
             if translation:
-                return {"ok": True, "translation": translation, "validated": translation, "buffer": ""}
+                result: dict[str, str | bool | float] = {
+                    "ok": True,
+                    "translation": translation,
+                    "validated": translation,
+                    "buffer": "",
+                    "cache_hit": False,
+                    "elapsed_ms": round((time.perf_counter() - started) * 1000, 3),
+                }
+                self._cache_set(cache_key, result)
+                return result
         except Exception:
             logger.debug("nllw direct translation failed; falling back to streaming", exc_info=True)
 
@@ -132,4 +178,13 @@ class NLLWTranslator:
                 validated_s, buffer_s, translation = self._join_parts(validated, buffer)
             except Exception:
                 logger.debug("nllw flush attempt failed", exc_info=True)
-        return {"ok": True, "translation": translation, "validated": validated_s, "buffer": buffer_s}
+        result = {
+            "ok": True,
+            "translation": translation,
+            "validated": validated_s,
+            "buffer": buffer_s,
+            "cache_hit": False,
+            "elapsed_ms": round((time.perf_counter() - started) * 1000, 3),
+        }
+        self._cache_set(cache_key, result)
+        return result
